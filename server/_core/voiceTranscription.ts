@@ -228,6 +228,7 @@ function getLanguageName(langCode: string): string {
     zh: "Chinese",
     ar: "Arabic",
     hi: "Hindi",
+    mr: "Marathi",
     nl: "Dutch",
     pl: "Polish",
     tr: "Turkish",

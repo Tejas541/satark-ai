@@ -9,11 +9,11 @@ Return a single JSON object with these fields: riskScore (integer 0-100), tactic
 
 const languageInstructions: Record<AnalysisLanguage, string> = {
   hindi: "Write explanation, recommendation, and URL findings in pure, simple Devanagari Hindi. Do not use Roman-script Hindi.",
-  hinglish: "Write explanation, recommendation, and URL findings in casual Hinglish using Roman script, mixing Hindi and English naturally as Indian users text. Do not use Devanagari.",
+  marathi: "Write explanation, recommendation, and URL findings in simple, natural Marathi using Devanagari. Avoid overly formal vocabulary.",
   english: "Write explanation, recommendation, and URL findings in plain, clear English.",
 };
 
-export async function analyzeSuspiciousText(content: string, language: AnalysisLanguage = "hinglish"): Promise<ScamAnalysis> {
+export async function analyzeSuspiciousText(content: string, language: AnalysisLanguage = "english"): Promise<ScamAnalysis> {
   try {
     const response = await invokeLLM({
       model: "gpt-5-mini",
@@ -40,7 +40,7 @@ export async function analyzeSuspiciousText(content: string, language: AnalysisL
   }
 }
 
-export function createSafetyFallback(content: string, language: AnalysisLanguage = "hinglish"): ScamAnalysis {
+export function createSafetyFallback(content: string, language: AnalysisLanguage = "english"): ScamAnalysis {
   const lower = content.toLowerCase();
   const tactics: string[] = [];
   const urlFindings: string[] = [];
@@ -76,8 +76,8 @@ export function createSafetyFallback(content: string, language: AnalysisLanguage
   if (language === "hindi") {
     return { riskScore: score, riskLevel: level, language, tactics, urlFindings: localizeUrlFindings(urlFindings, language), explanation: "इस संदेश में दबाव डालने या निजी जानकारी लेने के संकेत हो सकते हैं। भेजने वाले की पहचान आधिकारिक माध्यम से अलग से जांचें।", recommendedAction: "कोई OTP, पासवर्ड या भुगतान जानकारी साझा न करें। आधिकारिक वेबसाइट या नंबर से सत्यापन करें।" };
   }
-  if (language === "hinglish") {
-    return { riskScore: score, riskLevel: level, language, tactics, urlFindings: localizeUrlFindings(urlFindings, language), explanation: "Is message mein pressure ya personal information lene ke signals ho sakte hain. Sender ko official channel se alag se verify karo.", recommendedAction: "OTP, password ya payment details share mat karo. Official website ya number se verify karo." };
+  if (language === "marathi") {
+    return { riskScore: score, riskLevel: level, language, tactics, urlFindings: localizeUrlFindings(urlFindings, language), explanation: "या संदेशात दबाव टाकणे किंवा वैयक्तिक माहिती घेण्याचे संकेत असू शकतात. पाठवणाऱ्याची ओळख अधिकृत मार्गाने स्वतंत्रपणे तपासा.", recommendedAction: "OTP, पासवर्ड किंवा पैसे देण्याची माहिती देऊ नका. अधिकृत वेबसाइट किंवा नंबरवरून खात्री करा." };
   }
   return { riskScore: score, riskLevel: level, language, tactics, urlFindings, explanation: "This message contains signals commonly used to pressure people into acting quickly or sharing sensitive information. Verify the sender through an official channel before you act.", recommendedAction: "Do not share OTPs, passwords, or payment details. Verify independently through an official website or phone number." };
 }
@@ -86,11 +86,11 @@ function localizeUrlFindings(findings: string[], language: AnalysisLanguage): st
   if (language === "english") return findings;
   return findings.map((finding) => {
     if (finding.startsWith("Shortened links")) {
-      return language === "hindi" ? "छोटे किए गए लिंक असली वेबसाइट छिपा सकते हैं। खोलने से पहले जांचें।" : "Short link asli destination chhupa sakta hai. Kholne se pehle verify karo.";
+      return language === "hindi" ? "छोटे किए गए लिंक असली वेबसाइट छिपा सकते हैं। खोलने से पहले जांचें।" : "लहान केलेली लिंक खरे ठिकाण लपवू शकते. उघडण्यापूर्वी तपासा.";
     }
     if (finding.startsWith("This domain ending")) {
-      return language === "hindi" ? "इस डोमेन नाम की समाप्ति को साइन इन या भुगतान से पहले अतिरिक्त जांच की जरूरत है।" : "Is domain ending ko sign in ya payment se pehle extra verify karo.";
+      return language === "hindi" ? "इस डोमेन नाम की समाप्ति को साइन इन या भुगतान से पहले अतिरिक्त जांच की जरूरत है।" : "या डोमेन नावाची समाप्ती साइन इन किंवा पैसे देण्यापूर्वी जास्त तपासा.";
     }
-    return language === "hindi" ? "जांचें कि यह डोमेन संगठन की आधिकारिक वेबसाइट से बिल्कुल मेल खाता है।" : "Check karo ki domain organisation ki official website se exact match karta hai.";
+    return language === "hindi" ? "जांचें कि यह डोमेन संगठन की आधिकारिक वेबसाइट से बिल्कुल मेल खाता है।" : "हा डोमेन संस्थेच्या अधिकृत वेबसाइटशी तंतोतंत जुळतो का ते तपासा.";
   });
 }

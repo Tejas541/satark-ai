@@ -10,3 +10,9 @@
 - [x] Add Hindi, Hinglish, and English analysis-language selection with Hinglish as the default.
 - [x] Add a listen control that speaks the completed risk explanation in the selected language.
 - [x] Apply a consistent modern geometric sans-serif typography system without changing the existing layout or colors.
+- [x] Add call-recording upload, optional live recording, transcription, and transcript-based reuse of the existing analysis pipeline without retaining raw audio.
+- [x] Replace Hinglish with Marathi and implement separately persisted Hindi, Marathi, and English interface-language and analysis-output settings.
+- [x] Add prominent Hear and Read result controls for text and transcript-based analysis, with language-matched speech.
+- [x] Add high-risk action guidance and a simple Android/iPhone manual blocking guide while keeping low-risk guidance lightweight.
+- [x] Update the typography hierarchy to Space Grotesk, Rajdhani, Inter, and Noto Sans Devanagari while preserving the current layout and colors.
+- [x] Test multilingual text, audio-transcript, action-guidance, accessibility, and no-raw-audio-retention flows.

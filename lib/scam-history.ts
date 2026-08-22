@@ -9,6 +9,7 @@ export type ScamHistoryItem = {
   content: string;
   analysis: ScamAnalysis;
   createdAt: string;
+  transcript?: string;
 };
 
 let selectedHistoryItem: ScamHistoryItem | null = null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeScamAnalysis, riskLevelForScore } from "../shared/scam-analysis";
+import { normalizeScamAnalysis, riskLevelForScore, shouldShowEmergencyGuidance } from "../shared/scam-analysis";
 import { createSafetyFallback } from "../server/scam-analysis";
 
 describe("Satark AI analysis normalization", () => {
@@ -42,5 +42,23 @@ describe("Satark AI analysis normalization", () => {
     expect(result.language).toBe("hindi");
     expect(result.explanation).toMatch(/[\u0900-\u097F]/);
     expect(result.recommendedAction).toMatch(/[\u0900-\u097F]/);
+  });
+
+  it("honors the selected Marathi register in a fallback result", () => {
+    const result = createSafetyFallback("Your KYC will be blocked today. Share OTP now.", "marathi");
+
+    expect(result.language).toBe("marathi");
+    expect(result.explanation).toContain("संदेशात");
+    expect(result.recommendedAction).toMatch(/[\u0900-\u097F]/);
+  });
+
+  it("defaults malformed language values to English", () => {
+    const result = normalizeScamAnalysis({ riskScore: 12, language: "unsupported" });
+    expect(result.language).toBe("english");
+  });
+
+  it("shows emergency actions only for high-risk scores", () => {
+    expect(shouldShowEmergencyGuidance(69)).toBe(false);
+    expect(shouldShowEmergencyGuidance(70)).toBe(true);
   });
 });
