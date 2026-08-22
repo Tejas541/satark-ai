@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import type { ScamAnalysis } from "@/shared/scam-analysis";
+import { normalizeScamAnalysis, type ScamAnalysis } from "@/shared/scam-analysis";
 
 const HISTORY_KEY = "satark-ai-history-v1";
 
@@ -18,7 +18,12 @@ export async function getScamHistory(): Promise<ScamHistoryItem[]> {
   try {
     const stored = await AsyncStorage.getItem(HISTORY_KEY);
     const entries = stored ? (JSON.parse(stored) as ScamHistoryItem[]) : [];
-    return Array.isArray(entries) ? entries : [];
+    return Array.isArray(entries)
+      ? entries.map((entry) => ({
+          ...entry,
+          analysis: normalizeScamAnalysis(entry.analysis),
+        }))
+      : [];
   } catch {
     return [];
   }

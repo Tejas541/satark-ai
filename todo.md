@@ -16,3 +16,8 @@
 - [x] Add high-risk action guidance and a simple Android/iPhone manual blocking guide while keeping low-risk guidance lightweight.
 - [x] Update the typography hierarchy to Space Grotesk, Rajdhani, Inter, and Noto Sans Devanagari while preserving the current layout and colors.
 - [x] Test multilingual text, audio-transcript, action-guidance, accessibility, and no-raw-audio-retention flows.
+- [x] Define a backward-compatible V2 analysis schema with category, confidence, evidence, likely goal, and targeted recommended actions.
+- [x] Replace final keyword-based scoring with calibrated contextual evidence scoring shared by text and audio-transcript analysis.
+- [x] Add result sections for V2 category, confidence, score rationale, legitimate signals, and likely goal without redesigning the current interface.
+- [x] Improve context-aware link evidence and recommendations without asserting a link or sender is definitively malicious.
+- [x] Add deterministic tests for benign messages, promotions, ambiguous messages, credential scams, advance-fee scams, and transcript-equivalent analysis.

@@ -25,6 +25,11 @@ const riskLabels: Record<AnalysisLanguage, Record<ScamAnalysis["riskLevel"], str
   marathi: { Safe: "सुरक्षित", Suspicious: "संशयास्पद", "High Risk": "उच्च धोका" },
   english: { Safe: "Safe", Suspicious: "Suspicious", "High Risk": "High Risk" },
 };
+const v2Labels: Record<AnalysisLanguage, { category: string; confidence: string; whyScore: string; highSignals: string; legitimateSignals: string; likelyGoal: string; recommendedActions: string; categoryNames: Record<ScamAnalysis["category"], string>; confidenceNames: Record<ScamAnalysis["confidence"], string> }> = {
+  english: { category: "CATEGORY", confidence: "CONFIDENCE", whyScore: "WHY THIS SCORE?", highSignals: "RISK SIGNALS", legitimateSignals: "LEGITIMATE SIGNALS", likelyGoal: "WHAT IS THIS TRYING TO MAKE ME DO?", recommendedActions: "RECOMMENDED ACTIONS", categoryNames: { SAFE: "SAFE", "SPAM / PROMOTIONAL": "SPAM / PROMOTIONAL", SUSPICIOUS: "SUSPICIOUS", SCAM: "SCAM" }, confidenceNames: { LOW: "LOW", MEDIUM: "MEDIUM", HIGH: "HIGH" } },
+  hindi: { category: "श्रेणी", confidence: "विश्वास", whyScore: "यह स्कोर क्यों?", highSignals: "जोखिम संकेत", legitimateSignals: "वैध संकेत", likelyGoal: "यह आपसे क्या करवाना चाहता है?", recommendedActions: "सुझाए गए कदम", categoryNames: { SAFE: "सुरक्षित", "SPAM / PROMOTIONAL": "स्पैम / प्रचार", SUSPICIOUS: "संदिग्ध", SCAM: "स्कैम संकेत" }, confidenceNames: { LOW: "कम", MEDIUM: "मध्यम", HIGH: "उच्च" } },
+  marathi: { category: "वर्ग", confidence: "विश्वास", whyScore: "हा स्कोअर का?", highSignals: "धोका संकेत", legitimateSignals: "वैध संकेत", likelyGoal: "हे तुमच्याकडून काय करून घ्यायचा प्रयत्न करते?", recommendedActions: "सुचवलेल्या कृती", categoryNames: { SAFE: "सुरक्षित", "SPAM / PROMOTIONAL": "स्पॅम / प्रचार", SUSPICIOUS: "संशयास्पद", SCAM: "फसवणुकीचे संकेत" }, confidenceNames: { LOW: "कमी", MEDIUM: "मध्यम", HIGH: "उच्च" } },
+};
 
 type InputMode = "text" | "audio";
 type AudioSource = { uri: string; name: string; mimeType: string; size?: number };
@@ -206,6 +211,10 @@ export default function CheckScreen() {
   const scoreColor = analysis ? levelColor[analysis.riskLevel] : "#FF9500";
   const outputLanguage = analysis?.language ?? analysisLanguage;
   const outputTextStyle = outputLanguage === "english" ? undefined : styles.devanagariOutput;
+  const v2 = v2Labels[outputLanguage];
+  const riskSignals = analysis?.riskSignals ?? [];
+  const legitimateSignals = analysis?.legitimateSignals ?? [];
+  const recommendedActions = analysis?.recommendedActions?.length ? analysis.recommendedActions : analysis ? [analysis.recommendedAction] : [];
   const busy = textMutation.isPending || audioMutation.isPending;
   const highRisk = analysis ? shouldShowEmergencyGuidance(analysis.riskScore) : false;
 
@@ -222,8 +231,9 @@ export default function CheckScreen() {
     const spoken = [
       riskLabels[outputLanguage][analysis.riskLevel],
       transcript ? `${t.transcript}. ${transcript}` : "",
+      analysis.likelyGoal,
       analysis.explanation,
-      analysis.recommendedAction,
+      recommendedActions.join(" "),
       highRisk ? [t.blockNumber, t.doNotShare, t.doNotClick, t.reportFraud].join(" ") : t.lowRiskAdvice,
     ].filter(Boolean).join(". ");
     Speech.speak(spoken, { language: toSpeechLanguage(outputLanguage), rate: 0.86, onDone: () => setIsSpeaking(false), onStopped: () => setIsSpeaking(false), onError: () => setIsSpeaking(false) });
@@ -268,13 +278,16 @@ export default function CheckScreen() {
           </Pressable>
           <Text style={styles.disclaimer}>{t.disclaimer}</Text>
           {analysis ? <Animated.View style={[styles.resultCard, { opacity: cardOpacity, transform: [{ translateY: cardOpacity.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }]}>
-            <View style={styles.resultTop}><View><Text style={styles.resultEyebrow}>{t.analysisComplete}</Text><Text style={[styles.resultLevel, outputTextStyle, { color: scoreColor }]}>{riskLabels[outputLanguage][analysis.riskLevel]}</Text></View><View style={[styles.levelDot, { backgroundColor: scoreColor }]} /></View>
+            <View style={styles.resultTop}><View><Text style={styles.resultEyebrow}>{t.analysisComplete}</Text><Text style={[styles.resultLevel, outputTextStyle, { color: scoreColor }]}>{riskLabels[outputLanguage][analysis.riskLevel]}</Text><View style={styles.metaRow}><View style={[styles.categoryPill, { borderColor: scoreColor }]}><Text style={[styles.categoryText, outputTextStyle, { color: scoreColor }]}>{v2.categoryNames[analysis.category ?? "SUSPICIOUS"]}</Text></View><Text style={[styles.confidenceText, outputTextStyle]}>{v2.confidence}: {v2.confidenceNames[analysis.confidence ?? "MEDIUM"]}</Text></View></View><View style={[styles.levelDot, { backgroundColor: scoreColor }]} /></View>
             <RiskGauge score={analysis.riskScore} level={analysis.riskLevel} />
             <View style={styles.resultActionRow}><Pressable accessibilityRole="button" accessibilityLabel={isSpeaking ? t.stop : t.hear} onPress={speakResult} style={({ pressed }) => [styles.hearButton, isSpeaking && styles.listenButtonActive, pressed && styles.smallPressed]}><MaterialIcons name={isSpeaking ? "stop-circle" : "volume-up"} size={18} color="#0A0A0F" /><Text style={styles.hearText}>{isSpeaking ? t.stop : t.hear}</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={readOpen ? t.hide : t.read} onPress={() => setReadOpen((open) => !open)} style={({ pressed }) => [styles.readButton, pressed && styles.smallPressed]}><MaterialIcons name="article" size={17} color="#FFB451" /><Text style={styles.readText}>{readOpen ? t.hide : t.read}</Text></Pressable></View>
             {readOpen ? <>
               {transcript ? <View style={styles.transcriptCard}><Text style={styles.dividerLabel}>{t.transcript}</Text><Text style={[styles.transcriptText, outputTextStyle]}>{transcript}</Text><Text style={[styles.transcriptNotice, outputTextStyle]}>{t.transcriptBased} {t.transcriptionNotice}</Text></View> : null}
-              <View style={styles.recommendation}><MaterialIcons name="verified-user" size={19} color={scoreColor} /><Text style={[styles.recommendationText, outputTextStyle]}>{analysis.recommendedAction}</Text></View>
-              <Text style={styles.dividerLabel}>{t.why}</Text><Text style={[styles.explanation, outputTextStyle]}>{analysis.explanation}</Text>
+              <View style={styles.recommendation}><MaterialIcons name="verified-user" size={19} color={scoreColor} /><View style={styles.recommendationCopy}><Text style={styles.recommendationHeading}>{v2.recommendedActions}</Text>{recommendedActions.map((action) => <Text key={action} style={[styles.recommendationText, outputTextStyle]}>• {action}</Text>)}</View></View>
+              <View style={styles.goalCard}><MaterialIcons name="ads-click" size={18} color="#FFB451" /><View style={styles.goalCopy}><Text style={styles.goalLabel}>{v2.likelyGoal}</Text><Text style={[styles.goalText, outputTextStyle]}>{analysis.likelyGoal ?? ""}</Text></View></View>
+              <Text style={styles.dividerLabel}>{v2.whyScore}</Text><Text style={[styles.explanation, outputTextStyle]}>{analysis.explanation}</Text>
+              {riskSignals.length ? <View style={styles.evidenceCard}><Text style={styles.evidenceTitle}>{v2.highSignals}</Text>{riskSignals.map((signal) => <View key={`${signal.type}-${signal.evidence}`} style={styles.evidenceLine}><View style={styles.evidenceDot} /><View style={styles.evidenceCopy}><Text style={styles.evidenceType}>{signal.type.replace(/_/g, " ")}</Text><Text style={[styles.evidenceText, outputTextStyle]}>{signal.evidence}</Text></View></View>)}</View> : null}
+              {legitimateSignals.length ? <View style={styles.legitimateCard}><Text style={styles.legitimateTitle}>{v2.legitimateSignals}</Text>{legitimateSignals.map((signal) => <View key={`${signal.type}-${signal.evidence}`} style={styles.evidenceLine}><View style={styles.legitimateDot} /><View style={styles.evidenceCopy}><Text style={styles.evidenceType}>{signal.type.replace(/_/g, " ")}</Text><Text style={[styles.evidenceText, outputTextStyle]}>{signal.evidence}</Text></View></View>)}</View> : null}
               {analysis.tactics.length ? <View style={styles.section}><Text style={styles.dividerLabel}>{t.tactics}</Text><View style={styles.chips}>{analysis.tactics.map((tactic) => <View key={tactic} style={styles.chip}><Text style={styles.chipText}>{tactic}</Text></View>)}</View></View> : null}
               {analysis.urlFindings.length ? <View style={styles.section}><Text style={styles.dividerLabel}>{t.links}</Text>{analysis.urlFindings.map((finding) => <View key={finding} style={styles.finding}><MaterialIcons name="link" size={16} color="#F5C451" /><Text style={[styles.findingText, outputTextStyle]}>{finding}</Text></View>)}</View> : null}
               <View style={styles.actionGuidance}><Text style={styles.actionTitle}>{highRisk ? t.whatNow : t.lowRiskAdvice}</Text>{highRisk ? <><View style={styles.actionLine}><MaterialIcons name="block" size={18} color="#FFB451" /><Text style={styles.actionLineText}>{t.blockNumber}</Text></View><View style={styles.actionLine}><MaterialIcons name="lock-outline" size={18} color="#FFB451" /><Text style={styles.actionLineText}>{t.doNotShare}</Text></View><View style={styles.actionLine}><MaterialIcons name="link-off" size={18} color="#FFB451" /><Text style={styles.actionLineText}>{t.doNotClick}</Text></View><View style={styles.actionLine}><MaterialIcons name="report-problem" size={18} color="#FFB451" /><Text style={styles.actionLineText}>{t.reportFraud}</Text></View><Pressable onPress={() => setPhoneType((value) => value ?? "unsure")} style={({ pressed }) => [styles.blockHelpButton, pressed && styles.smallPressed]}><Text style={styles.blockHelpText}>{t.blockHelp}</Text><MaterialIcons name="chevron-right" size={18} color="#FFB451" /></Pressable>{phoneType ? <View style={styles.guide}><Text style={styles.guideTitle}>{t.whichPhone}</Text><View style={styles.phoneChoices}>{(["android", "iphone", "unsure"] as const).map((phone) => <Pressable key={phone} onPress={() => setPhoneType(phone)} style={({ pressed }) => [styles.phoneChoice, phoneType === phone && styles.phoneChoiceActive, pressed && styles.smallPressed]}><Text style={[styles.phoneChoiceText, phoneType === phone && styles.phoneChoiceTextActive]}>{phone === "android" ? t.android : phone === "iphone" ? t.iphone : t.notSure}</Text></Pressable>)}</View><View style={styles.guideSteps}>{guideSteps.map((step, index) => <View key={step} style={styles.guideStep}><Text style={styles.guideNumber}>{index + 1}</Text><Text style={styles.guideText}>{step}</Text></View>)}</View></View> : null}</> : null}</View>
@@ -345,6 +358,10 @@ const styles: Record<string, any> = StyleSheet.create({
   resultTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   resultEyebrow: { color: "#A8A6B3", fontFamily: "Rajdhani_600SemiBold", fontSize: 11, letterSpacing: 1.3 },
   resultLevel: { fontFamily: "Rajdhani_600SemiBold", fontSize: 25, marginTop: 3, letterSpacing: 0.2 },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 7 },
+  categoryPill: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  categoryText: { fontFamily: "Rajdhani_600SemiBold", fontSize: 10.5, letterSpacing: 0.5 },
+  confidenceText: { color: "#A8A6B3", fontFamily: "Rajdhani_600SemiBold", fontSize: 10.5, letterSpacing: 0.4 },
   levelDot: { width: 10, height: 10, borderRadius: 10, marginRight: 4 },
   resultActionRow: { flexDirection: "row", gap: 8, marginTop: 16 },
   hearButton: { flex: 1, minHeight: 44, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 7, borderRadius: 13, backgroundColor: "#FF9500" },
@@ -356,10 +373,26 @@ const styles: Record<string, any> = StyleSheet.create({
   transcriptText: { color: "#E0DEE5", fontFamily: "Inter_400Regular", fontSize: 14.5, lineHeight: 22 },
   transcriptNotice: { color: "#D2C99B", fontFamily: "Inter_400Regular", fontSize: 12, lineHeight: 18, marginTop: 10 },
   recommendation: { flexDirection: "row", alignItems: "flex-start", gap: 9, backgroundColor: "#101017", borderRadius: 14, padding: 12, marginTop: 14 },
+  recommendationCopy: { flex: 1, gap: 5 },
+  recommendationHeading: { color: "#FFB451", fontFamily: "SpaceGrotesk_600SemiBold", fontSize: 10.5, letterSpacing: 0.4 },
   recommendationText: { color: "#D2D0D8", fontFamily: "Inter_500Medium", fontSize: 13.5, lineHeight: 19, flex: 1 },
+  goalCard: { flexDirection: "row", alignItems: "flex-start", gap: 9, backgroundColor: "#201A12", borderRadius: 14, padding: 12, marginTop: 12, borderWidth: 1, borderColor: "#594426" },
+  goalCopy: { flex: 1 },
+  goalLabel: { color: "#FFCB75", fontFamily: "SpaceGrotesk_600SemiBold", fontSize: 10.5, letterSpacing: 0.25 },
+  goalText: { color: "#E0D7C1", fontFamily: "Inter_500Medium", fontSize: 13.5, lineHeight: 19, marginTop: 4 },
   dividerLabel: { color: "#A8A6B3", fontFamily: "SpaceGrotesk_600SemiBold", fontSize: 10, letterSpacing: 0.4, marginTop: 21, marginBottom: 7 },
   explanation: { color: "#E0DEE5", fontFamily: "Inter_400Regular", fontSize: 14.5, lineHeight: 22 },
   devanagariOutput: { fontFamily: "NotoSansDevanagari_400Regular", lineHeight: 24 },
+  evidenceCard: { marginTop: 14, backgroundColor: "#251917", borderRadius: 14, borderWidth: 1, borderColor: "#5C332B", padding: 12 },
+  legitimateCard: { marginTop: 12, backgroundColor: "#13231F", borderRadius: 14, borderWidth: 1, borderColor: "#285749", padding: 12 },
+  evidenceTitle: { color: "#FFAC8D", fontFamily: "SpaceGrotesk_600SemiBold", fontSize: 10.5, letterSpacing: 0.4, marginBottom: 8 },
+  legitimateTitle: { color: "#83DCB7", fontFamily: "SpaceGrotesk_600SemiBold", fontSize: 10.5, letterSpacing: 0.4, marginBottom: 8 },
+  evidenceLine: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginTop: 8 },
+  evidenceDot: { width: 7, height: 7, borderRadius: 7, backgroundColor: "#FF6B35", marginTop: 6 },
+  legitimateDot: { width: 7, height: 7, borderRadius: 7, backgroundColor: "#48D597", marginTop: 6 },
+  evidenceCopy: { flex: 1 },
+  evidenceType: { color: "#C8C4CF", fontFamily: "Rajdhani_600SemiBold", fontSize: 11.5, letterSpacing: 0.45 },
+  evidenceText: { color: "#E0DEE5", fontFamily: "Inter_400Regular", fontSize: 12.5, lineHeight: 18, marginTop: 2 },
   section: { marginTop: 1 }, chips: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   chip: { borderRadius: 999, borderWidth: 1, borderColor: "#594426", paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "#271F13" },
   chipText: { color: "#FFD28A", fontFamily: "Rajdhani_600SemiBold", fontSize: 12.5, letterSpacing: 0.3 },
