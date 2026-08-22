@@ -1,4 +1,7 @@
-import { COOKIE_NAME } from "../shared/const.js";
+import { z } from "zod";
+
+import { COOKIE_NAME } from "../shared/const";
+import { analyzeSuspiciousText } from "./scam-analysis";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
@@ -16,13 +19,11 @@ export const appRouter = router({
       } as const;
     }),
   }),
-
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  scam: router({
+    analyze: publicProcedure
+      .input(z.object({ content: z.string().trim().min(6, "Add a little more text to check.").max(5000, "Keep the check under 5,000 characters.") }))
+      .mutation(({ input }) => analyzeSuspiciousText(input.content)),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

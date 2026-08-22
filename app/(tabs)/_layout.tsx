@@ -2,9 +2,9 @@ import { Tabs } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HapticTab } from "@/components/haptic-tab";
-import { IconSymbol } from "@/components/ui/icon-symbol";
 import { Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function TabLayout() {
   const colors = useColors();
@@ -31,8 +31,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: "Check",
+          tabBarIcon: ({ color, size }) => <MaterialIcons size={size} name="radar" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: "History",
+          tabBarIcon: ({ color, size }) => <MaterialIcons size={size} name="history" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="about"
+        options={{
+          title: "About",
+          tabBarIcon: ({ color, size }) => <MaterialIcons size={size} name="info-outline" color={color} />,
         }}
       />
     </Tabs>
