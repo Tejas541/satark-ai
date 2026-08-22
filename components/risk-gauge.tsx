@@ -77,6 +77,6 @@ const styles = StyleSheet.create({
   wrap: { width: 128, height: 128, alignSelf: "center", justifyContent: "center", alignItems: "center" },
   svg: { position: "absolute" },
   content: { alignItems: "center", justifyContent: "center" },
-  score: { color: "#F5F5F7", fontSize: 38, fontWeight: "800", letterSpacing: -1.5 },
-  caption: { color: "#A8A6B3", fontSize: 8.5, fontWeight: "700", letterSpacing: 1.2, marginTop: -2 },
+  score: { color: "#F5F5F7", fontFamily: "Manrope_800ExtraBold", fontSize: 38, letterSpacing: -1.5 },
+  caption: { color: "#A8A6B3", fontFamily: "Manrope_700Bold", fontSize: 8.5, letterSpacing: 1.2, marginTop: -2 },
 });

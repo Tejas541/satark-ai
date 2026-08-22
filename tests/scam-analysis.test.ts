@@ -28,10 +28,19 @@ describe("Satark AI analysis normalization", () => {
   it("returns a usable risk result when the model response is unavailable", () => {
     const result = createSafetyFallback(
       "Congratulations! Your KYC will be blocked today. Click bit.ly/update-kyc-now and enter your OTP now.",
+      "english",
     );
 
     expect(result.riskLevel).toBe("High Risk");
     expect(result.tactics).toContain("OTP/Credential Request");
     expect(result.urlFindings.length).toBeGreaterThan(0);
+  });
+
+  it("honors the selected Hindi register in a fallback result", () => {
+    const result = createSafetyFallback("Your KYC will be blocked today. Share OTP now.", "hindi");
+
+    expect(result.language).toBe("hindi");
+    expect(result.explanation).toMatch(/[\u0900-\u097F]/);
+    expect(result.recommendedAction).toMatch(/[\u0900-\u097F]/);
   });
 });

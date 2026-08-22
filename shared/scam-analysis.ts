@@ -2,6 +2,9 @@ export const riskLevels = ["Safe", "Suspicious", "High Risk"] as const;
 
 export type RiskLevel = (typeof riskLevels)[number];
 
+export const analysisLanguages = ["hindi", "hinglish", "english"] as const;
+export type AnalysisLanguage = (typeof analysisLanguages)[number];
+
 export const tacticLabels = [
   "Fake Urgency",
   "Authority Impersonation",
@@ -13,6 +16,7 @@ export const tacticLabels = [
 export type ScamAnalysis = {
   riskScore: number;
   riskLevel: RiskLevel;
+  language: AnalysisLanguage;
   tactics: string[];
   explanation: string;
   recommendedAction: string;
@@ -39,6 +43,9 @@ export function normalizeScamAnalysis(value: unknown): ScamAnalysis {
   return {
     riskScore,
     riskLevel: riskLevelForScore(riskScore),
+    language: analysisLanguages.includes(source.language as AnalysisLanguage)
+      ? (source.language as AnalysisLanguage)
+      : "hinglish",
     tactics,
     explanation:
       typeof source.explanation === "string" && source.explanation.trim()

@@ -2,6 +2,9 @@ import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold } from "@expo-google-fonts/manrope";
+import { NotoSansDevanagari_400Regular, NotoSansDevanagari_500Medium, NotoSansDevanagari_700Bold } from "@expo-google-fonts/noto-sans-devanagari";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
@@ -27,6 +30,16 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+    Manrope_800ExtraBold,
+    NotoSansDevanagari_400Regular,
+    NotoSansDevanagari_500Medium,
+    NotoSansDevanagari_700Bold,
+  });
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
 
@@ -96,6 +109,10 @@ export default function RootLayout() {
   );
 
   const shouldOverrideSafeArea = Platform.OS === "web";
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   if (shouldOverrideSafeArea) {
     return (

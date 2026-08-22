@@ -26,6 +26,10 @@ export default function TabLayout() {
           borderTopColor: colors.border,
           borderTopWidth: 0.5,
         },
+        tabBarLabelStyle: {
+          fontFamily: "Manrope_600SemiBold",
+          fontSize: 11,
+        },
       }}
     >
       <Tabs.Screen

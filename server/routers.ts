@@ -21,8 +21,8 @@ export const appRouter = router({
   }),
   scam: router({
     analyze: publicProcedure
-      .input(z.object({ content: z.string().trim().min(6, "Add a little more text to check.").max(5000, "Keep the check under 5,000 characters.") }))
-      .mutation(({ input }) => analyzeSuspiciousText(input.content)),
+      .input(z.object({ content: z.string().trim().min(6, "Add a little more text to check.").max(5000, "Keep the check under 5,000 characters."), language: z.enum(["hindi", "hinglish", "english"]).default("hinglish") }))
+      .mutation(({ input }) => analyzeSuspiciousText(input.content, input.language)),
   }),
 });
 
