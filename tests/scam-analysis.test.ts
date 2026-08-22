@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeScamAnalysis, riskLevelForScore } from "../shared/scam-analysis";
+import { createSafetyFallback } from "../server/scam-analysis";
 
 describe("Satark AI analysis normalization", () => {
   it("derives the risk level from the normalized score", () => {
@@ -22,5 +23,15 @@ describe("Satark AI analysis normalization", () => {
     expect(result.riskLevel).toBe("High Risk");
     expect(result.tactics).toEqual(["Fake Urgency", "OTP/Credential Request"]);
     expect(result.urlFindings).toEqual(["The domain is a lookalike"]);
+  });
+
+  it("returns a usable risk result when the model response is unavailable", () => {
+    const result = createSafetyFallback(
+      "Congratulations! Your KYC will be blocked today. Click bit.ly/update-kyc-now and enter your OTP now.",
+    );
+
+    expect(result.riskLevel).toBe("High Risk");
+    expect(result.tactics).toContain("OTP/Credential Request");
+    expect(result.urlFindings.length).toBeGreaterThan(0);
   });
 });
