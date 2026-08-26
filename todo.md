@@ -32,3 +32,10 @@
 - [x] Add explicit server-side URL verification states for verified threats, no threat found, and unavailable Safe Browsing checks.
 - [x] Preserve contextual risk as the primary analysis while representing URL reputation as additional evidence only.
 - [x] Validate Safe Browsing neutral, verified-threat, unavailable, and no-URL behavior without exposing credentials or changing the frontend.
+- [x] Complete a non-invasive end-to-end audit of analysis, Safe Browsing, scoring, data flow, security, logging, and the prescribed scenario tests before applying any further fixes.
+- [x] Rotate the Google Safe Browsing secret and eliminate plaintext credential material from the local workspace artifact.
+- [x] Align risk scores, risk levels, categories, frontend labels, and high-risk guidance to the approved LOW/SUSPICIOUS/HIGH/CRITICAL taxonomy.
+- [x] Add bounded Safe Browsing timeout and explicit rate-limit handling while preserving contextual analysis on verification failure.
+- [x] Redact URL query strings, fragments, credentials, and identifiers from Safe Browsing diagnostics.
+- [x] Render concise URL verification state within the existing links/evidence area.
+- [x] Add approved targeted tests for verification states, timeout, rate limit, LLM failure, bounded URL parsing, duplicate/multiple URLs, audio routing, and risk boundaries.

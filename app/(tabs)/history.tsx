@@ -7,7 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useAppLanguage } from "@/lib/app-language";
 import { getScamHistory, setSelectedHistoryItem, type ScamHistoryItem } from "@/lib/scam-history";
 
-const riskColor = { Safe: "#48D597", Suspicious: "#F5C451", "High Risk": "#FF6B35" } as const;
+const riskColor = { Low: "#48D597", Suspicious: "#F5C451", High: "#FF9500", Critical: "#FF6B35" } as const;
 
 function relativeDate(date: string): string {
   const delta = Date.now() - new Date(date).getTime();
@@ -23,7 +23,7 @@ export default function HistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { language, t } = useAppLanguage();
   const router = useRouter();
-  const levelLabels = language === "hindi" ? { Safe: "सुरक्षित", Suspicious: "संदिग्ध", "High Risk": "उच्च जोखिम" } : language === "marathi" ? { Safe: "सुरक्षित", Suspicious: "संशयास्पद", "High Risk": "उच्च धोका" } : { Safe: "Safe", Suspicious: "Suspicious", "High Risk": "High Risk" };
+  const levelLabels = language === "hindi" ? { Low: "कम", Suspicious: "संदिग्ध", High: "उच्च", Critical: "गंभीर" } : language === "marathi" ? { Low: "कमी", Suspicious: "संशयास्पद", High: "उच्च", Critical: "गंभीर" } : { Low: "Low", Suspicious: "Suspicious", High: "High", Critical: "Critical" };
   const loadHistory = useCallback(async () => setEntries(await getScamHistory()), []);
   useFocusEffect(useCallback(() => { void loadHistory(); }, [loadHistory]));
 

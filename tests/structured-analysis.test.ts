@@ -50,4 +50,13 @@ describe("Structured LLM analysis integration", () => {
     expect(result.riskSignals.map((signal) => signal.type)).toEqual(expect.arrayContaining(["CREDENTIAL_REQUEST", "SHORTENED_LINK"]));
     expect(result.urlVerification).toBe("NO_THREAT_FOUND");
   });
+
+  it("falls back safely when the structured LLM request rejects", async () => {
+    mockedInvokeLLM.mockRejectedValue(new Error("provider unavailable"));
+
+    const result = await analyzeSuspiciousText("Your KYC will expire today. Click bit.ly/update and enter your Aadhaar and OTP.", "english");
+    expect(result.category).toBe("SCAM");
+    expect(result.riskScore).toBeGreaterThanOrEqual(75);
+    expect(result.urlVerification).toBe("NO_THREAT_FOUND");
+  });
 });

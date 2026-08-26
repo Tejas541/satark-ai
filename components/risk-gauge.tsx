@@ -7,9 +7,10 @@ import type { RiskLevel } from "@/shared/scam-analysis";
 const CIRCUMFERENCE = 2 * Math.PI * 46;
 
 const palette: Record<RiskLevel, string> = {
-  Safe: "#48D597",
+  Low: "#48D597",
   Suspicious: "#F5C451",
-  "High Risk": "#FF6B35",
+  High: "#FF9500",
+  Critical: "#FF6B35",
 };
 
 export function RiskGauge({ score, level }: { score: number; level: RiskLevel }) {
@@ -30,7 +31,7 @@ export function RiskGauge({ score, level }: { score: number; level: RiskLevel })
 
   useEffect(() => {
     pulse.stopAnimation();
-    if (level !== "High Risk") {
+    if (level !== "Critical") {
       pulse.setValue(1);
       return;
     }

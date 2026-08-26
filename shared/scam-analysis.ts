@@ -1,4 +1,4 @@
-export const riskLevels = ["Safe", "Suspicious", "High Risk"] as const;
+export const riskLevels = ["Low", "Suspicious", "High", "Critical"] as const;
 export type RiskLevel = (typeof riskLevels)[number];
 
 export const analysisLanguages = ["hindi", "marathi", "english"] as const;
@@ -41,13 +41,14 @@ export type ScamAnalysis = {
 };
 
 export function riskLevelForScore(score: number): RiskLevel {
-  if (score >= 70) return "High Risk";
-  if (score >= 35) return "Suspicious";
-  return "Safe";
+  if (score <= 20) return "Low";
+  if (score <= 49) return "Suspicious";
+  if (score <= 74) return "High";
+  return "Critical";
 }
 
 export function shouldShowEmergencyGuidance(score: number): boolean {
-  return score >= 70;
+  return score >= 50;
 }
 
 function signalList(value: unknown): EvidenceSignal[] {
@@ -70,7 +71,7 @@ export function normalizeScamAnalysis(value: unknown): ScamAnalysis {
   const fallbackAction = typeof source.recommendedAction === "string" ? source.recommendedAction.trim() : typeof source.recommended_action === "string" ? source.recommended_action.trim() : "Stay cautious and verify independently before taking action.";
   const recommendedActions = stringList(source.recommendedActions ?? source.recommended_actions, 4);
   if (!recommendedActions.length) recommendedActions.push(fallbackAction);
-  const category = messageCategories.includes(source.category as MessageCategory) ? source.category as MessageCategory : riskScore >= 80 ? "SCAM" : riskScore >= 40 ? "SUSPICIOUS" : "SAFE";
+  const category = messageCategories.includes(source.category as MessageCategory) ? source.category as MessageCategory : riskScore <= 20 ? "SAFE" : riskScore <= 49 ? "SUSPICIOUS" : "SCAM";
   const confidence = confidenceLevels.includes(source.confidence as ConfidenceLevel) ? source.confidence as ConfidenceLevel : riskScore >= 70 ? "HIGH" : "MEDIUM";
   const verificationValue = source.urlVerification ?? source.url_verification;
   const urlVerification = urlVerificationStatuses.includes(verificationValue as UrlVerificationStatus) ? verificationValue as UrlVerificationStatus : undefined;

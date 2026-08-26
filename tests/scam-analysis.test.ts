@@ -5,11 +5,15 @@ import { createSafetyFallback, extractMeaningfulUrls, markUrlVerificationUnavail
 
 describe("Satark AI V2 calibrated detection", () => {
   it("derives risk levels and emergency guidance at stable thresholds", () => {
-    expect(riskLevelForScore(0)).toBe("Safe");
-    expect(riskLevelForScore(35)).toBe("Suspicious");
-    expect(riskLevelForScore(70)).toBe("High Risk");
-    expect(shouldShowEmergencyGuidance(69)).toBe(false);
-    expect(shouldShowEmergencyGuidance(70)).toBe(true);
+    expect(riskLevelForScore(20)).toBe("Low");
+    expect(riskLevelForScore(21)).toBe("Suspicious");
+    expect(riskLevelForScore(49)).toBe("Suspicious");
+    expect(riskLevelForScore(50)).toBe("High");
+    expect(riskLevelForScore(74)).toBe("High");
+    expect(riskLevelForScore(75)).toBe("Critical");
+    expect(riskLevelForScore(100)).toBe("Critical");
+    expect(shouldShowEmergencyGuidance(49)).toBe(false);
+    expect(shouldShowEmergencyGuidance(50)).toBe(true);
   });
 
   it("normalizes a partial legacy record without breaking history compatibility", () => {
@@ -21,16 +25,16 @@ describe("Satark AI V2 calibrated detection", () => {
   });
 
   const calibratedCases = [
-    { name: "genuine personal message", text: "Hi Rahul, are we still meeting for lunch tomorrow?", category: "SAFE", max: 19 },
-    { name: "genuine transaction alert", text: "Dear Customer, ₹2,500 was debited from your account through UPI.", category: "SAFE", max: 19 },
-    { name: "official electricity reminder", text: "Your electricity bill of ₹1,240 is due on Aug 30. Pay through the official app.", category: "SAFE", max: 19 },
-    { name: "ordinary promotion", text: "Flat 30% off on selected shoes. Shop before Sunday.", category: "SPAM / PROMOTIONAL", min: 20, max: 39 },
-    { name: "OTP threat scam", text: "Your account will be blocked today. Click this link and enter your OTP.", category: "SCAM", min: 80 },
-    { name: "advance-fee prize scam", text: "Congratulations! You won ₹25 lakh. Pay ₹999 processing fee to claim.", category: "SCAM", min: 80 },
-    { name: "fake job registration fee", text: "You have been selected for a work-from-home job. Pay ₹1,500 registration fee.", category: "SCAM", min: 80 },
-    { name: "ambiguous verification notice", text: "Your account requires an important update. Please verify your details.", category: "SUSPICIOUS", min: 40, max: 59 },
-    { name: "anti-scam educational message", text: "Never share your OTP or UPI PIN with anyone.", category: "SAFE", max: 19 },
-    { name: "short-link KYC phishing", text: "Your KYC will expire today. Click bit.ly/update and enter your Aadhaar and OTP.", category: "SCAM", min: 80 },
+    { name: "genuine personal message", text: "Hi Rahul, are we still meeting for lunch tomorrow?", category: "SAFE", max: 20 },
+    { name: "genuine transaction alert", text: "Dear Customer, ₹2,500 was debited from your account through UPI.", category: "SAFE", max: 20 },
+    { name: "official electricity reminder", text: "Your electricity bill of ₹1,240 is due on Aug 30. Pay through the official app.", category: "SAFE", max: 20 },
+    { name: "ordinary promotion", text: "Flat 30% off on selected shoes. Shop before Sunday.", category: "SPAM / PROMOTIONAL", min: 21, max: 49 },
+    { name: "OTP threat scam", text: "Your account will be blocked today. Click this link and enter your OTP.", category: "SCAM", min: 75 },
+    { name: "advance-fee prize scam", text: "Congratulations! You won ₹25 lakh. Pay ₹999 processing fee to claim.", category: "SCAM", min: 75 },
+    { name: "fake job registration fee", text: "You have been selected for a work-from-home job. Pay ₹1,500 registration fee.", category: "SCAM", min: 75 },
+    { name: "ambiguous verification notice", text: "Your account requires an important update. Please verify your details.", category: "SUSPICIOUS", min: 21, max: 49 },
+    { name: "anti-scam educational message", text: "Never share your OTP or UPI PIN with anyone.", category: "SAFE", max: 20 },
+    { name: "short-link KYC phishing", text: "Your KYC will expire today. Click bit.ly/update and enter your Aadhaar and OTP.", category: "SCAM", min: 75 },
     { name: "delivery fee cancellation pressure", text: "Your parcel could not be delivered because of an incomplete address. Pay ₹25 delivery verification fee now to avoid cancellation: https://example.com", category: "SCAM", min: 75 },
   ] as const;
 
@@ -68,6 +72,7 @@ describe("Satark AI V2 calibrated detection", () => {
 
   it("extracts meaningful URLs without treating an ordinary URL as unsafe", () => {
     expect(extractMeaningfulUrls("Here is the document: https://example.com/document.")).toEqual(["https://example.com/document"]);
+    expect(extractMeaningfulUrls("Read www.example.com/a, www.example.com/a, and malformed https://")).toEqual(["https://www.example.com/a"]);
     const result = createSafetyFallback("Here is the document: https://example.com/document", "english");
     expect(result.category).toBe("SAFE");
     expect(result.riskSignals).toEqual([]);

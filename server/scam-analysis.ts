@@ -51,7 +51,7 @@ const analysisSystemInstruction = `You are Satark AI's evidence-based message sa
 
 Return exactly one category: SAFE, SPAM / PROMOTIONAL, SUSPICIOUS, or SCAM. First identify what action the sender wants, what information, money, access, link-opening, or secrecy is requested, then separately evaluate risk evidence and legitimate/reassuring evidence. A word alone is not evidence: promotional language, urgency, verify, account, KYC, OTP, and links must be interpreted in context. Explicitly recognize anti-scam advice, normal personal conversations, genuine transaction notices, reasonable bill reminders, normal delivery updates, official-channel guidance, and ordinary marketing when appropriate.
 
-Use calibrated risk scores: 0-19 benign; 20-39 low-risk promotional or mild persuasion; 40-59 suspicious but ambiguous; 60-79 high risk; 80-100 critical or multiple independent strong scam signals. Do not cluster unrelated cases around the middle. Strong combinations such as credential harvesting plus a threat and urgency, advance-fee payment plus an unrealistic reward, or remote-access pressure should receive substantially higher scores. Spam is not automatically a scam. A low risk result can have HIGH confidence when legitimate context is clear; confidence measures evidence consistency, not danger.
+Use calibrated risk scores exactly as follows: 0-20 LOW; 21-49 SUSPICIOUS or uncertain, including ordinary promotional messages when clearly promotional; 50-74 HIGH; 75-100 CRITICAL. SAFE results must be 0-20, SPAM / PROMOTIONAL and SUSPICIOUS results must be 21-49, and SCAM results must be 50-100. Do not cluster unrelated cases around the middle. Strong combinations such as credential harvesting plus a threat and urgency, advance-fee payment plus an unrealistic reward, or remote-access pressure should receive substantially higher scores. Spam is not automatically a scam. A low risk result can have HIGH confidence when legitimate context is clear; confidence measures evidence consistency, not danger.
 
 Use only evidence present in the content. Do not state certainty, do not call a person or organization fraudulent, and do not claim that a URL is malicious unless verified evidence is supplied separately. For URLs without verifiable evidence, state only a meaningful observed signal such as a shortener, unusual domain, misleading mismatch, or an inability to independently verify it. Give targeted actions that match the detected situation. The explanation must name the actual evidence rather than use generic wording.`;
 
@@ -68,10 +68,10 @@ function responseContentToText(content: unknown): string | null {
 
 function isCoherentLlmAnalysis(analysis: ScamAnalysis): boolean {
   if (!analysis.explanation || !analysis.recommendedActions.length) return false;
-  if (analysis.category === "SAFE" && analysis.riskScore >= 40) return false;
-  if (analysis.category === "SPAM / PROMOTIONAL" && analysis.riskScore >= 40) return false;
-  if (analysis.category === "SUSPICIOUS" && (analysis.riskScore < 35 || analysis.riskScore >= 80)) return false;
-  if (analysis.category === "SCAM" && analysis.riskScore < 60) return false;
+  if (analysis.category === "SAFE" && analysis.riskScore > 20) return false;
+  if (analysis.category === "SPAM / PROMOTIONAL" && (analysis.riskScore < 21 || analysis.riskScore > 49)) return false;
+  if (analysis.category === "SUSPICIOUS" && (analysis.riskScore < 21 || analysis.riskScore > 49)) return false;
+  if (analysis.category === "SCAM" && analysis.riskScore < 50) return false;
   return true;
 }
 
@@ -157,6 +157,16 @@ function unavailableUrlFinding(language: AnalysisLanguage): string {
 export function extractMeaningfulUrls(content: string): string[] {
   const rawUrls = content.match(/(?:https?:\/\/|www\.)[^\s<>{}"']+|\b(?:[a-z0-9-]+\.)+(?:com|in|net|org|info|xyz|top|click|link|ly)(?:\/[^\s<>{}"']*)?/gi) ?? [];
   return [...new Set(rawUrls.map((value) => value.replace(/[).,!?:;]+$/, "")).map((value) => /^https?:\/\//i.test(value) ? value : `https://${value}`))].slice(0, 10);
+}
+
+function diagnosticHosts(urls: string[]): string {
+  return [...new Set(urls.map((url) => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return "invalid-url";
+    }
+  }))].join(", ");
 }
 
 export function mergeSafeBrowsingEvidence(analysis: ScamAnalysis, threats: SafeBrowsingThreat[]): ScamAnalysis {
@@ -282,8 +292,8 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
   score = Math.max(0, Math.min(100, score));
 
   const strongScamPattern = types.has("CREDENTIAL_REQUEST") && (types.has("SHORTENED_LINK") || types.has("ACCOUNT_THREAT") || types.has("IMPERSONATION")) || types.has("ADVANCE_FEE") && (types.has("UNLIKELY_REWARD") || types.has("MONEY_REQUEST"));
-  if (strongScamPattern) score = Math.max(score, 80);
-  const category: MessageCategory = strongScamPattern || score >= 80 ? "SCAM" : promotional && !riskSignals.length ? "SPAM / PROMOTIONAL" : score >= 40 ? "SUSPICIOUS" : "SAFE";
+  if (strongScamPattern) score = Math.max(score, 75);
+  const category: MessageCategory = strongScamPattern || score >= 50 ? "SCAM" : promotional && !riskSignals.length ? "SPAM / PROMOTIONAL" : score >= 21 ? "SUSPICIOUS" : "SAFE";
   const confidence: ConfidenceLevel = strongScamPattern || (category === "SAFE" && legitimateSignals.length >= 1) || riskSignals.length >= 3 ? "HIGH" : riskSignals.length === 1 || category === "SPAM / PROMOTIONAL" ? "MEDIUM" : "LOW";
   const likelyGoal = types.has("CREDENTIAL_REQUEST") ? copy.goalCredential : types.has("REMOTE_ACCESS") ? copy.goalRemote : types.has("SHORTENED_LINK") || types.has("UNUSUAL_DOMAIN") ? copy.goalLink : types.has("ADVANCE_FEE") ? copy.goalFee : types.has("MONEY_REQUEST") ? copy.goalMoney : promotional ? copy.goalPromotion : copy.noSuspicion;
   const recommendedActions: string[] = [];
@@ -328,7 +338,7 @@ export async function analyzeSuspiciousText(content: string, language: AnalysisL
   }
   const urls = extractMeaningfulUrls(content);
   if (!urls.length) return analysis;
-  console.info(`[Satark AI] Extracted ${urls.length} URL(s) for Safe Browsing lookup: ${urls.join(", ")}`);
+  console.info(`[Satark AI] Extracted URL candidates for Safe Browsing; urlCount=${urls.length}; hosts=${diagnosticHosts(urls)}.`);
   const reputation = await lookupSafeBrowsing(urls);
   if (reputation.verification === "VERIFIED_THREAT") return mergeSafeBrowsingEvidence(analysis, reputation.threats);
   if (reputation.verification === "VERIFICATION_UNAVAILABLE") {
