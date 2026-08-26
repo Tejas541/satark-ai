@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeScamAnalysis, riskLevelForScore, shouldShowEmergencyGuidance } from "../shared/scam-analysis";
-import { createSafetyFallback } from "../server/scam-analysis";
+import { createSafetyFallback, extractMeaningfulUrls, mergeSafeBrowsingEvidence } from "../server/scam-analysis";
 
 describe("Satark AI V2 calibrated detection", () => {
   it("derives risk levels and emergency guidance at stable thresholds", () => {
@@ -31,6 +31,7 @@ describe("Satark AI V2 calibrated detection", () => {
     { name: "ambiguous verification notice", text: "Your account requires an important update. Please verify your details.", category: "SUSPICIOUS", min: 40, max: 59 },
     { name: "anti-scam educational message", text: "Never share your OTP or UPI PIN with anyone.", category: "SAFE", max: 19 },
     { name: "short-link KYC phishing", text: "Your KYC will expire today. Click bit.ly/update and enter your Aadhaar and OTP.", category: "SCAM", min: 80 },
+    { name: "delivery fee cancellation pressure", text: "Your parcel could not be delivered because of an incomplete address. Pay ₹25 delivery verification fee now to avoid cancellation: https://example.com", category: "SCAM", min: 75 },
   ] as const;
 
   for (const scenario of calibratedCases) {
@@ -63,6 +64,24 @@ describe("Satark AI V2 calibrated detection", () => {
     expect(result.category).toBe("SPAM / PROMOTIONAL");
     expect(result.riskSignals).toEqual([]);
     expect(result.legitimateSignals.map((signal) => signal.type)).toContain("PROMOTIONAL_CONTEXT");
+  });
+
+  it("extracts meaningful URLs without treating an ordinary URL as unsafe", () => {
+    expect(extractMeaningfulUrls("Here is the document: https://example.com/document.")).toEqual(["https://example.com/document"]);
+    const result = createSafetyFallback("Here is the document: https://example.com/document", "english");
+    expect(result.category).toBe("SAFE");
+    expect(result.riskSignals).toEqual([]);
+  });
+
+  it("uses a verified Safe Browsing threat as strong URL evidence without replacing other context", () => {
+    const base = createSafetyFallback("Your parcel could not be delivered. Pay ₹25 verification fee now to avoid cancellation: https://delivery-check.example", "english");
+    const result = mergeSafeBrowsingEvidence(base, [{ url: "https://delivery-check.example", threatType: "SOCIAL_ENGINEERING", platformType: "ANY_PLATFORM", threatEntryType: "URL" }]);
+    expect(result.category).toBe("SCAM");
+    expect(result.confidence).toBe("HIGH");
+    expect(result.riskScore).toBeGreaterThanOrEqual(75);
+    expect(result.riskSignals.map((signal) => signal.type)).toContain("UNSAFE_URL");
+    expect(result.explanation).toMatch(/Safe Browsing/i);
+    expect(result.recommendedActions.join(" ")).toMatch(/link/i);
   });
 
   it("renders Devanagari fallback text for Hindi and Marathi output", () => {

@@ -1,5 +1,5 @@
 import { riskLevelForScore, type AnalysisLanguage, type ConfidenceLevel, type EvidenceSignal, type MessageCategory, type ScamAnalysis } from "../shared/scam-analysis";
-
+import { lookupSafeBrowsing, type SafeBrowsingThreat } from "./safe-browsing";
 type ScoredSignal = EvidenceSignal & { weight: number; tactic?: string };
 
 const textByLanguage: Record<AnalysisLanguage, {
@@ -42,6 +42,54 @@ function localLinkFinding(kind: "short" | "unusual" | "http", language: Analysis
   return language === "hindi" ? copy[1] : language === "marathi" ? copy[2] : copy[0];
 }
 
+function unsafeUrlText(language: AnalysisLanguage, threatCount: number): string {
+  if (language === "hindi") return `Google Safe Browsing ने ${threatCount} असुरक्षित URL संकेत पाया।`;
+  if (language === "marathi") return `Google Safe Browsing ने ${threatCount} असुरक्षित URL संकेत शोधला.`;
+  return `Google Safe Browsing reported ${threatCount} unsafe URL signal${threatCount === 1 ? "" : "s"}.`;
+}
+
+function unsafeUrlFinding(language: AnalysisLanguage, threat: SafeBrowsingThreat): string {
+  if (language === "hindi") return `असुरक्षित URL संकेत: ${threat.threatType.replace(/_/g, " ")}. इस लिंक को न खोलें।`;
+  if (language === "marathi") return `असुरक्षित URL संकेत: ${threat.threatType.replace(/_/g, " ")}. ही लिंक उघडू नका.`;
+  return `Unsafe URL signal: ${threat.threatType.replace(/_/g, " ")}. Do not open this link.`;
+}
+
+export function extractMeaningfulUrls(content: string): string[] {
+  const rawUrls = content.match(/(?:https?:\/\/|www\.)[^\s<>{}"']+|\b(?:[a-z0-9-]+\.)+(?:com|in|net|org|info|xyz|top|click|link|ly)(?:\/[^\s<>{}"']*)?/gi) ?? [];
+  return [...new Set(rawUrls.map((value) => value.replace(/[).,!?:;]+$/, "")).map((value) => /^https?:\/\//i.test(value) ? value : `https://${value}`))].slice(0, 10);
+}
+
+export function mergeSafeBrowsingEvidence(analysis: ScamAnalysis, threats: SafeBrowsingThreat[]): ScamAnalysis {
+  if (!threats.length) return analysis;
+  const copy = textByLanguage[analysis.language];
+  const riskSignals = [...analysis.riskSignals];
+  const urlFindings = [...analysis.urlFindings];
+  for (const threat of threats) {
+    if (!riskSignals.some((signal) => signal.type === "UNSAFE_URL" && signal.evidence.includes(threat.url))) {
+      riskSignals.push({ type: "UNSAFE_URL", evidence: `${threat.url} (${threat.threatType.replace(/_/g, " ")})` });
+    }
+    const finding = unsafeUrlFinding(analysis.language, threat);
+    if (!urlFindings.includes(finding)) urlFindings.push(finding);
+  }
+  const recommendedActions = [...new Set([copy.linkAction, ...analysis.recommendedActions])].slice(0, 4);
+  const riskScore = Math.min(100, Math.max(75, analysis.riskScore + 45));
+  console.info(`[Satark AI] Safe Browsing added ${threats.length} unsafe URL threat(s); final risk contribution raised score to ${riskScore}.`);
+  return {
+    ...analysis,
+    riskScore,
+    riskLevel: riskLevelForScore(riskScore),
+    category: "SCAM",
+    confidence: "HIGH",
+    tactics: [...new Set(["Unsafe URL detected", ...analysis.tactics])].slice(0, 6),
+    riskSignals,
+    likelyGoal: analysis.likelyGoal === copy.noSuspicion ? copy.goalLink : analysis.likelyGoal,
+    explanation: `${unsafeUrlText(analysis.language, threats.length)} ${analysis.explanation}`.slice(0, 620),
+    recommendedAction: recommendedActions[0],
+    recommendedActions,
+    urlFindings: urlFindings.slice(0, 4),
+  };
+}
+
 function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis {
   const lower = content.toLowerCase();
   const copy = textByLanguage[language];
@@ -62,10 +110,11 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
   const hasCredentialNoun = includesAny(lower, [/\b(otp|password|passcode|cvv|upi\s*pin|pin|aadhaar)\b/i, /ओटीपी|पासवर्ड|यूपीआई\s*पिन|आधार/i, /ओटीपी|पासवर्ड|upi\s*pin|आधार/i]);
   const hasCredentialAction = includesAny(lower, [/\b(enter|share|send|provide|submit|tell|verify)\b.{0,32}\b(otp|password|passcode|cvv|upi\s*pin|pin|aadhaar)\b/i, /\b(otp|password|passcode|cvv|upi\s*pin|pin|aadhaar)\b.{0,32}\b(enter|share|send|provide|submit)\b/i, /(otp|पासवर्ड|आधार).{0,25}(डालें|भेजें|साझा करें)/i, /(otp|पासवर्ड|आधार).{0,25}(द्या|पाठवा|शेअर करा)/i]);
   const hasPaymentAction = includesAny(lower, [/\b(pay|transfer|send|deposit|recharge)\b.{0,40}\b(₹|rs\.?|inr|fee|payment|upi|money|amount)/i, /\b(₹|rs\.?|inr|fee|payment|upi|money|amount)\b.{0,40}\b(pay|transfer|send|deposit)/i, /(भुगतान|पैसे|रुपये).{0,30}(करें|भेजें)/i, /(पैसे|रुपये|फी).{0,30}(भरा|पाठवा)/i]);
-  const hasThreat = includesAny(lower, [/\b(account|kyc|connection|service).{0,35}\b(blocked|suspended|disconnected|expire|closed)/i, /\b(blocked|suspended|disconnected|expire)\b.{0,35}\b(account|kyc|connection|service)/i, /(खाता|kyc|कनेक्शन).{0,25}(बंद|ब्लॉक|समाप्त)/i, /(खाते|kyc|कनेक्शन).{0,25}(बंद|ब्लॉक|संपेल)/i]);
+  const hasThreat = includesAny(lower, [/\b(account|kyc|connection|service|parcel|delivery).{0,35}\b(blocked|suspended|disconnected|expire|closed|cancelled|cancellation)/i, /\b(blocked|suspended|disconnected|expire|cancelled|cancellation)\b.{0,35}\b(account|kyc|connection|service|parcel|delivery)/i, /(खाता|kyc|कनेक्शन|पार्सल).{0,25}(बंद|ब्लॉक|समाप्त|रद्द)/i, /(खाते|kyc|कनेक्शन|पार्सल).{0,25}(बंद|ब्लॉक|संपेल|रद्द)/i]);
   const hasUrgency = includesAny(lower, [/\b(today|now|immediately|within\s+\d+|minutes?|hours?|urgent|last chance)\b/i, /आज|तुरंत|अभी|मिनट/i, /आज|तात्काळ|आता|मिनिट/i]);
   const hasAction = hasCredentialAction || hasPaymentAction || includesAny(lower, [/\b(click|open|install|download|call|reply|verify)\b/i, /क्लिक|खोलें|इंस्टॉल|डाउनलोड|जवाब/i, /क्लिक|उघडा|इन्स्टॉल|डाउनलोड|उत्तर/i]);
   const hasImpersonation = includesAny(lower, [/\b(bank|rbi|police|government|income tax|customer care|courier)\b/i, /बैंक|सरकार|पुलिस/i, /बँक|सरकार|पोलीस/i]);
+  const hasDeliveryImpersonation = includesAny(lower, [/\b(parcel|delivery|courier).{0,45}\b(address|cancel|verification|fee)\b/i, /\b(address|cancel|verification|fee).{0,45}\b(parcel|delivery|courier)\b/i, /(पार्सल|डिलीवरी).{0,35}(पता|रद्द|फीस|सत्यापन)/i, /(पार्सल|डिलिव्हरी).{0,35}(पत्ता|रद्द|फी|पडताळणी)/i]);
   const hasPrize = includesAny(lower, [/\b(won|winner|prize|lottery|lakh|cashback|reward|congratulations)\b/i, /इनाम|लाख|जीते/i, /बक्षीस|लाख|जिंकलात/i]);
   const hasAdvanceFee = hasPaymentAction && includesAny(lower, [/\b(processing|registration|release|activation|security)\s*fee\b/i, /प्रोसेसिंग\s*फीस|रजिस्ट्रेशन\s*फीस/i, /प्रोसेसिंग\s*फी|नोंदणी\s*फी/i]);
   const hasRemoteAccess = includesAny(lower, [/\b(screen\s*share|remote\s*access|install\s+(this\s+)?app|anydesk|teamviewer)\b/i, /स्क्रीन\s*शेयर|रिमोट\s*एक्सेस/i, /स्क्रीन\s*शेअर|रिमोट\s*अॅक्सेस/i]);
@@ -75,7 +124,7 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
   const officialReminder = includesAny(lower, [/official\s+(app|website)/i, /आधिकारिक\s+(ऐप|वेबसाइट)/i, /अधिकृत\s+(अॅप|वेबसाइट)/i]) && !hasCredentialAction && !hasThreat;
   const personalMessage = includesAny(lower, [/\b(are we still|meeting for lunch|see you tomorrow|how are you)\b/i]);
   const ambiguousVerification = includesAny(lower, [/\b(account|profile|details?).{0,35}\b(verify|update)\b/i, /\b(verify|update).{0,35}\b(account|profile|details?)\b/i, /(खाता|विवरण).{0,25}(सत्यापित|अपडेट)/i, /(खाते|तपशील).{0,25}(पडताळा|अपडेट)/i]) && !hasCredentialAction && !officialReminder && !normalTransaction;
-  const urls = content.match(/(?:https?:\/\/|www\.)[^\s]+|\b[\w-]+\.(?:com|in|net|org|info|xyz|top|click|link|ly)\b/gi) ?? [];
+  const urls = extractMeaningfulUrls(content);
 
   if (isEducation) addLegitimate("ANTI_SCAM_EDUCATION", "The message warns the reader not to share credentials.");
   if (normalTransaction) addLegitimate("TRANSACTION_NOTIFICATION", "A transaction alert is stated without a request to act.");
@@ -88,6 +137,7 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
     if (hasThreat && (hasUrgency || hasAction)) addRisk("ACCOUNT_THREAT", phrase(content, /[^.!?]{0,30}(?:blocked|suspended|disconnected|expire)[^.!?]{0,30}/i) ?? "The message threatens service or account interruption.", 24, "Account Threat");
     if (hasUrgency && hasAction) addRisk("RUSHED_ACTION", phrase(content, /[^.!?]{0,25}(?:today|now|immediately|within\s+\d+|urgent)[^.!?]{0,25}/i) ?? "The message creates a short deadline for action.", 12, "Fake Urgency");
     if (hasImpersonation && (hasAction || hasThreat || hasPaymentAction)) addRisk("IMPERSONATION", "The message invokes a trusted organisation while requesting action.", 13, "Authority Impersonation");
+    if (hasDeliveryImpersonation && (hasPaymentAction || hasUrgency || hasThreat)) addRisk("DELIVERY_IMPERSONATION", "The message uses a parcel or delivery issue to request urgent action or payment.", 16, "Delivery impersonation");
     if (hasPaymentAction) addRisk("MONEY_REQUEST", phrase(content, /[^.!?]{0,25}(?:pay|transfer|fee|payment|UPI)[^.!?]{0,35}/i) ?? "The message asks for money or a payment action.", 20, "Payment Pressure");
     if (hasAdvanceFee) addRisk("ADVANCE_FEE", phrase(content, /[^.!?]{0,25}(?:processing|registration|release|activation).{0,25}(?:fee|fees)/i) ?? "The message asks for an advance or processing fee.", 28, "Advance-fee request");
     if (hasPrize && (hasPaymentAction || hasAdvanceFee || hasUrgency)) addRisk("UNLIKELY_REWARD", phrase(content, /[^.!?]{0,25}(?:won|winner|prize|lottery|lakh|reward)[^.!?]{0,35}/i) ?? "The message uses an unusually attractive reward to prompt action.", 18, "Too-Good-To-Be-True Offer");
@@ -158,7 +208,16 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
  * The score is composed from contextual evidence and calibrated combinations, not an LLM feeling.
  */
 export async function analyzeSuspiciousText(content: string, language: AnalysisLanguage = "english"): Promise<ScamAnalysis> {
-  return scoreContext(content, language);
+  const analysis = scoreContext(content, language);
+  const urls = extractMeaningfulUrls(content);
+  if (!urls.length) return analysis;
+  console.info(`[Satark AI] Extracted ${urls.length} URL(s) for Safe Browsing lookup: ${urls.join(", ")}`);
+  const reputation = await lookupSafeBrowsing(urls);
+  if (reputation.status !== "checked") {
+    console.info(`[Satark AI] Safe Browsing status: ${reputation.status}; continuing with contextual analysis only.`);
+    return analysis;
+  }
+  return mergeSafeBrowsingEvidence(analysis, reputation.threats);
 }
 
 /** Maintained for existing imports and focused fallback tests. */

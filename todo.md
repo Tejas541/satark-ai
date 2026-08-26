@@ -21,3 +21,7 @@
 - [x] Add result sections for V2 category, confidence, score rationale, legitimate signals, and likely goal without redesigning the current interface.
 - [x] Improve context-aware link evidence and recommendations without asserting a link or sender is definitively malicious.
 - [x] Add deterministic tests for benign messages, promotions, ambiguous messages, credential scams, advance-fee scams, and transcript-equivalent analysis.
+- [x] Add a server-only Google Safe Browsing lookup using the existing GoogleSafeBrowsing secret without exposing it to the client.
+- [x] Combine verified unsafe URL evidence with the shared V2 text-and-transcript scoring engine and preserve graceful fallback behavior.
+- [x] Add URL intelligence wording within existing evidence and explanation sections without redesigning the UI.
+- [x] Test legitimate, banking, credential-scam, delivery-scam, and normal URL scenarios plus Safe Browsing failures.
