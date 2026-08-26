@@ -25,3 +25,7 @@
 - [x] Combine verified unsafe URL evidence with the shared V2 text-and-transcript scoring engine and preserve graceful fallback behavior.
 - [x] Add URL intelligence wording within existing evidence and explanation sections without redesigning the UI.
 - [x] Test legitimate, banking, credential-scam, delivery-scam, and normal URL scenarios plus Safe Browsing failures.
+- [x] Upgrade only the backend analysis engine to produce structured, evidence-based LLM assessments with calibrated risk, category, confidence, signals, likely goal, explanation, and actions.
+- [x] Preserve the existing frontend contract, UI, navigation, styling, audio flow, language flow, history, and Google Safe Browsing integration.
+- [x] Add resilient validation and contextual fallback behavior so failed or malformed LLM output does not break analysis.
+- [x] Validate text and transcript-equivalent scenarios across safe, promotional, ambiguous, credential, advance-fee, delivery, and investment contexts.
