@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../server/_core/llm", () => ({ invokeLLM: vi.fn() }));
-vi.mock("../server/safe-browsing", () => ({ lookupSafeBrowsing: vi.fn(async () => ({ status: "checked", threats: [] })) }));
+vi.mock("../server/safe-browsing", () => ({ lookupSafeBrowsing: vi.fn(async () => ({ verification: "NO_THREAT_FOUND", threats: [] })) }));
 
 import { invokeLLM } from "../server/_core/llm";
 import { analyzeSuspiciousText } from "../server/scam-analysis";
@@ -48,5 +48,6 @@ describe("Structured LLM analysis integration", () => {
     expect(result.category).toBe("SCAM");
     expect(result.riskScore).toBeGreaterThanOrEqual(80);
     expect(result.riskSignals.map((signal) => signal.type)).toEqual(expect.arrayContaining(["CREDENTIAL_REQUEST", "SHORTENED_LINK"]));
+    expect(result.urlVerification).toBe("NO_THREAT_FOUND");
   });
 });

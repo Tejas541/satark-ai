@@ -29,3 +29,6 @@
 - [x] Preserve the existing frontend contract, UI, navigation, styling, audio flow, language flow, history, and Google Safe Browsing integration.
 - [x] Add resilient validation and contextual fallback behavior so failed or malformed LLM output does not break analysis.
 - [x] Validate text and transcript-equivalent scenarios across safe, promotional, ambiguous, credential, advance-fee, delivery, and investment contexts.
+- [x] Add explicit server-side URL verification states for verified threats, no threat found, and unavailable Safe Browsing checks.
+- [x] Preserve contextual risk as the primary analysis while representing URL reputation as additional evidence only.
+- [x] Validate Safe Browsing neutral, verified-threat, unavailable, and no-URL behavior without exposing credentials or changing the frontend.

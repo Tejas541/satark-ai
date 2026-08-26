@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeScamAnalysis, riskLevelForScore, shouldShowEmergencyGuidance } from "../shared/scam-analysis";
-import { createSafetyFallback, extractMeaningfulUrls, mergeSafeBrowsingEvidence } from "../server/scam-analysis";
+import { createSafetyFallback, extractMeaningfulUrls, markUrlVerificationUnavailable, mergeSafeBrowsingEvidence } from "../server/scam-analysis";
 
 describe("Satark AI V2 calibrated detection", () => {
   it("derives risk levels and emergency guidance at stable thresholds", () => {
@@ -82,6 +82,16 @@ describe("Satark AI V2 calibrated detection", () => {
     expect(result.riskSignals.map((signal) => signal.type)).toContain("UNSAFE_URL");
     expect(result.explanation).toMatch(/Safe Browsing/i);
     expect(result.recommendedActions.join(" ")).toMatch(/link/i);
+    expect(result.urlVerification).toBe("VERIFIED_THREAT");
+  });
+
+  it("represents unavailable URL verification without changing contextual risk or claiming the link is safe", () => {
+    const base = createSafetyFallback("Please update your account details using https://example.com/verify", "english");
+    const result = markUrlVerificationUnavailable(base);
+    expect(result.urlVerification).toBe("VERIFICATION_UNAVAILABLE");
+    expect(result.riskScore).toBe(base.riskScore);
+    expect(result.category).toBe(base.category);
+    expect(result.urlFindings.join(" ")).toMatch(/could not be independently verified/i);
   });
 
   it("renders Devanagari fallback text for Hindi and Marathi output", () => {

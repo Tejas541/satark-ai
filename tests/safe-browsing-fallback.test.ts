@@ -8,6 +8,6 @@ describe("Safe Browsing graceful fallback", () => {
   it("returns unavailable rather than claiming an unchecked URL is safe", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network unavailable")));
     const result = await lookupSafeBrowsing(["https://example.com/document"]);
-    expect(result).toEqual({ status: "unavailable", threats: [] });
+    expect(result).toEqual({ verification: "VERIFICATION_UNAVAILABLE", threats: [] });
   });
 });

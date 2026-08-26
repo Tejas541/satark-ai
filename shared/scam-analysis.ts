@@ -10,6 +10,9 @@ export type MessageCategory = (typeof messageCategories)[number];
 export const confidenceLevels = ["LOW", "MEDIUM", "HIGH"] as const;
 export type ConfidenceLevel = (typeof confidenceLevels)[number];
 
+export const urlVerificationStatuses = ["VERIFIED_THREAT", "NO_THREAT_FOUND", "VERIFICATION_UNAVAILABLE"] as const;
+export type UrlVerificationStatus = (typeof urlVerificationStatuses)[number];
+
 export type EvidenceSignal = { type: string; evidence: string };
 
 export const tacticLabels = [
@@ -34,6 +37,7 @@ export type ScamAnalysis = {
   recommendedAction: string;
   recommendedActions: string[];
   urlFindings: string[];
+  urlVerification?: UrlVerificationStatus;
 };
 
 export function riskLevelForScore(score: number): RiskLevel {
@@ -68,6 +72,8 @@ export function normalizeScamAnalysis(value: unknown): ScamAnalysis {
   if (!recommendedActions.length) recommendedActions.push(fallbackAction);
   const category = messageCategories.includes(source.category as MessageCategory) ? source.category as MessageCategory : riskScore >= 80 ? "SCAM" : riskScore >= 40 ? "SUSPICIOUS" : "SAFE";
   const confidence = confidenceLevels.includes(source.confidence as ConfidenceLevel) ? source.confidence as ConfidenceLevel : riskScore >= 70 ? "HIGH" : "MEDIUM";
+  const verificationValue = source.urlVerification ?? source.url_verification;
+  const urlVerification = urlVerificationStatuses.includes(verificationValue as UrlVerificationStatus) ? verificationValue as UrlVerificationStatus : undefined;
 
   return {
     riskScore,
@@ -83,5 +89,6 @@ export function normalizeScamAnalysis(value: unknown): ScamAnalysis {
     recommendedAction: recommendedActions[0],
     recommendedActions,
     urlFindings: stringList(source.urlFindings ?? source.url_findings, 4),
+    ...(urlVerification ? { urlVerification } : {}),
   };
 }

@@ -148,6 +148,12 @@ function unsafeUrlFinding(language: AnalysisLanguage, threat: SafeBrowsingThreat
   return `Unsafe URL signal: ${threat.threatType.replace(/_/g, " ")}. Do not open this link.`;
 }
 
+function unavailableUrlFinding(language: AnalysisLanguage): string {
+  if (language === "hindi") return "यह लिंक स्वतंत्र रूप से सत्यापित नहीं किया जा सका।";
+  if (language === "marathi") return "ही लिंक स्वतंत्रपणे पडताळता आली नाही.";
+  return "This link could not be independently verified.";
+}
+
 export function extractMeaningfulUrls(content: string): string[] {
   const rawUrls = content.match(/(?:https?:\/\/|www\.)[^\s<>{}"']+|\b(?:[a-z0-9-]+\.)+(?:com|in|net|org|info|xyz|top|click|link|ly)(?:\/[^\s<>{}"']*)?/gi) ?? [];
   return [...new Set(rawUrls.map((value) => value.replace(/[).,!?:;]+$/, "")).map((value) => /^https?:\/\//i.test(value) ? value : `https://${value}`))].slice(0, 10);
@@ -181,6 +187,16 @@ export function mergeSafeBrowsingEvidence(analysis: ScamAnalysis, threats: SafeB
     recommendedAction: recommendedActions[0],
     recommendedActions,
     urlFindings: urlFindings.slice(0, 4),
+    urlVerification: "VERIFIED_THREAT",
+  };
+}
+
+export function markUrlVerificationUnavailable(analysis: ScamAnalysis): ScamAnalysis {
+  const finding = unavailableUrlFinding(analysis.language);
+  return {
+    ...analysis,
+    urlVerification: "VERIFICATION_UNAVAILABLE",
+    urlFindings: [...new Set([...analysis.urlFindings, finding])].slice(0, 4),
   };
 }
 
@@ -314,11 +330,13 @@ export async function analyzeSuspiciousText(content: string, language: AnalysisL
   if (!urls.length) return analysis;
   console.info(`[Satark AI] Extracted ${urls.length} URL(s) for Safe Browsing lookup: ${urls.join(", ")}`);
   const reputation = await lookupSafeBrowsing(urls);
-  if (reputation.status !== "checked") {
-    console.info(`[Satark AI] Safe Browsing status: ${reputation.status}; continuing with contextual analysis only.`);
-    return analysis;
+  if (reputation.verification === "VERIFIED_THREAT") return mergeSafeBrowsingEvidence(analysis, reputation.threats);
+  if (reputation.verification === "VERIFICATION_UNAVAILABLE") {
+    console.info("[Satark AI] Safe Browsing verification unavailable; continuing with contextual analysis only.");
+    return markUrlVerificationUnavailable(analysis);
   }
-  return mergeSafeBrowsingEvidence(analysis, reputation.threats);
+  console.info("[Satark AI] Safe Browsing found no threat match; keeping contextual analysis unchanged.");
+  return { ...analysis, urlVerification: "NO_THREAT_FOUND" };
 }
 
 /** Maintained for existing imports and focused fallback tests. */

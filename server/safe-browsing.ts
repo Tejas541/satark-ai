@@ -1,3 +1,5 @@
+import type { UrlVerificationStatus } from "../shared/scam-analysis";
+
 export type SafeBrowsingThreat = {
   url: string;
   threatType: string;
@@ -6,7 +8,7 @@ export type SafeBrowsingThreat = {
 };
 
 export type SafeBrowsingLookup = {
-  status: "checked" | "unavailable" | "not_configured";
+  verification: UrlVerificationStatus;
   threats: SafeBrowsingThreat[];
 };
 
@@ -20,7 +22,8 @@ function getApiKey(): string | null {
 export async function lookupSafeBrowsing(urls: string[]): Promise<SafeBrowsingLookup> {
   const key = getApiKey();
   const uniqueUrls = [...new Set(urls.filter((url) => /^https?:\/\//i.test(url)))].slice(0, 10);
-  if (!key || !uniqueUrls.length) return { status: key ? "checked" : "not_configured", threats: [] };
+  if (!uniqueUrls.length) return { verification: "NO_THREAT_FOUND", threats: [] };
+  if (!key) return { verification: "VERIFICATION_UNAVAILABLE", threats: [] };
 
   try {
     const response = await fetch(`${endpoint}?key=${encodeURIComponent(key)}`, {
@@ -38,7 +41,7 @@ export async function lookupSafeBrowsing(urls: string[]): Promise<SafeBrowsingLo
     });
     if (!response.ok) {
       console.warn(`[Satark AI] Safe Browsing lookup unavailable (HTTP ${response.status}) for ${uniqueUrls.length} URL(s).`);
-      return { status: "unavailable", threats: [] };
+      return { verification: "VERIFICATION_UNAVAILABLE", threats: [] };
     }
     const payload = await response.json() as { matches?: Array<{ threat: { url: string }; threatType?: string; platformType?: string; threatEntryType?: string }> };
     const threats = (payload.matches ?? []).map((match) => ({
@@ -48,9 +51,9 @@ export async function lookupSafeBrowsing(urls: string[]): Promise<SafeBrowsingLo
       threatEntryType: match.threatEntryType ?? "URL",
     }));
     console.info(`[Satark AI] Safe Browsing checked ${uniqueUrls.length} URL(s); ${threats.length} threat match(es).`);
-    return { status: "checked", threats };
+    return { verification: threats.length ? "VERIFIED_THREAT" : "NO_THREAT_FOUND", threats };
   } catch {
     console.warn(`[Satark AI] Safe Browsing request failed for ${uniqueUrls.length} URL(s); continuing without reputation evidence.`);
-    return { status: "unavailable", threats: [] };
+    return { verification: "VERIFICATION_UNAVAILABLE", threats: [] };
   }
 }
