@@ -78,6 +78,54 @@ describe("Satark AI V2 calibrated detection", () => {
     expect(result.riskSignals).toEqual([]);
   });
 
+  it("flags a raw IP address used as a URL without treating it as a confirmed threat", () => {
+  const result = createSafetyFallback(
+    "Your account needs verification. Please visit http://185.23.44.91/login",
+    "english",
+  );
+
+  expect(result.riskSignals.map((signal) => signal.type)).toContain("IP_ADDRESS_URL");
+  expect(result.urlFindings.join(" ")).toMatch(/IP address/i);
+  expect(result.urlVerification).not.toBe("VERIFIED_THREAT");
+});
+
+it("flags a punycode domain without treating it as a confirmed threat", () => {
+  const result = createSafetyFallback(
+    "Your account needs verification. Please visit https://xn--paytm-5ve.example/login",
+    "english",
+  );
+
+  expect(result.riskSignals.map((signal) => signal.type)).toContain("PUNYCODE_DOMAIN");
+  expect(result.urlFindings.join(" ")).toMatch(/punycode|encoded domain|domain/i);
+  expect(result.urlVerification).not.toBe("VERIFIED_THREAT");
+});
+
+it("flags URL user-info deception without treating it as a confirmed threat", () => {
+  const result = createSafetyFallback(
+    "Your account needs verification. Visit https://paypal.com@evil-example.com/login",
+    "english",
+  );
+
+  expect(result.riskSignals.map((signal) => signal.type)).toContain("URL_USERINFO");
+  expect(result.urlFindings.join(" ")).toMatch(/user|domain|destination/i);
+  expect(result.urlVerification).not.toBe("VERIFIED_THREAT");
+});
+
+it("combines credential request with URL user-info deception", () => {
+  const result = createSafetyFallback(
+    "Your account needs verification. Enter your OTP at https://paypal.com@evil-example.com/login",
+    "english",
+  );
+
+  const types = result.riskSignals.map((signal) => signal.type);
+
+  expect(types).toContain("CREDENTIAL_REQUEST");
+  expect(types).toContain("URL_USERINFO");
+  expect(result.riskScore).toBeGreaterThan(50);
+  expect(result.explanation).toMatch(/strong scam indicators|combination of evidence/i);
+  expect(result.urlVerification).not.toBe("VERIFIED_THREAT");
+});
+
   it("uses a verified Safe Browsing threat as strong URL evidence without replacing other context", () => {
     const base = createSafetyFallback("Your parcel could not be delivered. Pay ₹25 verification fee now to avoid cancellation: https://delivery-check.example", "english");
     const result = mergeSafeBrowsingEvidence(base, [{ url: "https://delivery-check.example", threatType: "SOCIAL_ENGINEERING", platformType: "ANY_PLATFORM", threatEntryType: "URL" }]);

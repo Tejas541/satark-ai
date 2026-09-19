@@ -127,8 +127,56 @@ function includesAny(value: string, expressions: RegExp[]): boolean {
   return expressions.some((expression) => expression.test(value));
 }
 
-function localLinkFinding(kind: "short" | "unusual" | "http", language: AnalysisLanguage): string {
+function isIpAddressUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isPunycodeDomainUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname
+      .split(".")
+      .some((label) => label.toLowerCase().startsWith("xn--"));
+  } catch {
+    return false;
+  }
+}
+
+function hasUrlUserInfo(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return Boolean(parsed.username || parsed.password);
+  } catch {
+    return false;
+  }
+}
+
+
+
+function localLinkFinding(
+  kind: "short" | "unusual" | "http" | "ip" | "punycode" | "userinfo",
+  language: AnalysisLanguage,
+): string {
   const copy = {
+    userinfo: [
+  "This link hides the destination behind information before @. Verify the actual domain before opening.",
+  "यह लिंक @ से पहले की जानकारी के पीछे असली destination छिपाता है। खोलने से पहले actual domain की जांच करें।",
+  "हा लिंक @ च्या आधीच्या माहितीमागे खरे destination लपवतो. उघडण्यापूर्वी actual domain तपासा.",
+],
+    punycode: [
+  "This link uses an encoded domain name. Verify the domain carefully before opening.",
+  "यह लिंक encoded domain name का उपयोग करता है। खोलने से पहले domain की सावधानी से जांच करें।",
+  "हा लिंक encoded domain name वापरतो. उघडण्यापूर्वी domain काळजीपूर्वक तपासा.",
+],
+    ip: [
+    "This link uses a raw IP address instead of a domain name. Verify before opening.",
+    "यह लिंक डोमेन नाम की जगह सीधे IP address का उपयोग करता है। खोलने से पहले जांचें।",
+    "हा लिंक डोमेन नावाऐवजी थेट IP address चा वापर करतो. उघडण्यापूर्वी तपासा.",],
     short: ["Shortened links can hide the final destination. Verify before opening.", "छोटे लिंक अंतिम वेबसाइट छिपा सकते हैं। खोलने से पहले जांचें।", "लहान लिंक अंतिम वेबसाइट लपवू शकतात. उघडण्यापूर्वी तपासा."],
     unusual: ["This link uses an unusual domain ending. It could not be independently verified.", "इस लिंक की डोमेन समाप्ति असामान्य है। इसे स्वतंत्र रूप से सत्यापित नहीं किया जा सका।", "या लिंकची डोमेन समाप्ती असामान्य आहे. ती स्वतंत्रपणे पडताळता आली नाही."],
     http: ["This link uses HTTP rather than HTTPS for a sensitive action. Do not enter details until independently verified.", "यह लिंक संवेदनशील कार्रवाई के लिए HTTPS की जगह HTTP इस्तेमाल करता है। जांचे बिना जानकारी न दें।", "हा लिंक संवेदनशील कृतीसाठी HTTPS ऐवजी HTTP वापरतो. पडताळणीशिवाय माहिती देऊ नका."],
@@ -267,7 +315,16 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
   }
 
   for (const url of urls.slice(0, 2)) {
-    if (/\b(bit\.ly|tinyurl\.com|t\.co)\b/i.test(url)) {
+ if (isIpAddressUrl(url)) {
+  addRisk("IP_ADDRESS_URL", url, 14, "IP-based link");
+  urlFindings.push(localLinkFinding("ip", language));
+} else if (isPunycodeDomainUrl(url)) {
+  addRisk("PUNYCODE_DOMAIN", url, 12, "Encoded domain");
+  urlFindings.push(localLinkFinding("punycode", language));
+} else if (hasUrlUserInfo(url)) {
+  addRisk("URL_USERINFO", url, 14, "URL user-info deception");
+  urlFindings.push(localLinkFinding("userinfo", language));
+} else if (/\b(bit\.ly|tinyurl\.com|t\.co)\b/i.test(url)) {
       addRisk("SHORTENED_LINK", url, 16, "Phishing Link");
       urlFindings.push(localLinkFinding("short", language));
     } else if (/\.(xyz|top|click|link)\b/i.test(url)) {
@@ -298,7 +355,14 @@ function scoreContext(content: string, language: AnalysisLanguage): ScamAnalysis
   const likelyGoal = types.has("CREDENTIAL_REQUEST") ? copy.goalCredential : types.has("REMOTE_ACCESS") ? copy.goalRemote : types.has("SHORTENED_LINK") || types.has("UNUSUAL_DOMAIN") ? copy.goalLink : types.has("ADVANCE_FEE") ? copy.goalFee : types.has("MONEY_REQUEST") ? copy.goalMoney : promotional ? copy.goalPromotion : copy.noSuspicion;
   const recommendedActions: string[] = [];
   if (types.has("CREDENTIAL_REQUEST")) recommendedActions.push(copy.credentialAction);
-  if (types.has("SHORTENED_LINK") || types.has("UNUSUAL_DOMAIN") || types.has("INSECURE_LINK")) recommendedActions.push(copy.linkAction);
+  if (
+  types.has("SHORTENED_LINK") ||
+  types.has("UNUSUAL_DOMAIN") ||
+  types.has("INSECURE_LINK") ||
+  types.has("IP_ADDRESS_URL") ||
+  types.has("PUNYCODE_DOMAIN") ||
+  types.has("URL_USERINFO")
+) recommendedActions.push(copy.linkAction);
   if (types.has("ADVANCE_FEE")) recommendedActions.push(copy.feeAction);
   if (types.has("MONEY_REQUEST") && !types.has("ADVANCE_FEE")) recommendedActions.push(copy.moneyAction);
   if (types.has("REMOTE_ACCESS")) recommendedActions.push(copy.remoteAction);
